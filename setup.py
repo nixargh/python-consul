@@ -1,29 +1,40 @@
-import glob
+#!/usr/bin/env python3
+"""Setup of consul."""
+
 import sys
 import re
-import os
 
 from setuptools.command.test import test as TestCommand
 from setuptools.command.install import install
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
-metadata = dict(
-    re.findall("__([a-z]+)__ = '([^']+)'", open('consul/__init__.py').read()))
+def get_variable_from_file(ffile, variable):
+    """Get variable from file."""
+    variable_re = "^{} = ['\"]([^'\"]*)['\"]".format(variable)
+    with open(ffile, "r") as ffile_obj:
+        match = re.search(variable_re, ffile_obj.read(), re.M)
+    if match:
+        return match.group(1)
+    return None
 
 
-requirements = [
-    x.strip() for x
-    in open('requirements.txt').readlines() if not x.startswith('#')]
+def get_version():
+    """Get package version."""
+    return get_variable_from_file("consul/__init__.py", "__version__")
 
 
-description = "Python client for Consul (http://www.consul.io/)"
-
-
-py_modules = [os.path.splitext(x)[0] for x in glob.glob('consul/*.py')]
+def get_requirements(rfile):
+    """Get list of required Python packages."""
+    requires = list()
+    with open(rfile, "r") as reqfile:
+        for line in reqfile.readlines():
+            requires.append(line.strip())
+    return requires
 
 
 class Install(install):
+    """Install class."""
     def run(self):
         # Issue #123: skip installation of consul.aio if python version < 3.4.2
         # as this version or later is required by aiohttp
@@ -34,6 +45,7 @@ class Install(install):
 
 
 class PyTest(TestCommand):
+    """Class for tests."""
     def finalize_options(self):
         TestCommand.finalize_options(self)
         self.test_args = []
@@ -46,17 +58,26 @@ class PyTest(TestCommand):
 
 
 setup(
-    name='python-consul',
-    version=metadata['version'],
-    author='Andy Gayton',
-    author_email='andy@thecablelounge.com',
-    url='https://github.com/cablehead/python-consul',
+    name='consul',
     license='MIT',
-    description=description,
-    long_description=open('README.rst').read() + '\n\n' +
-        open('CHANGELOG.rst').read(),
-    py_modules=py_modules,
-    install_requires=requirements,
+    version=get_version(),
+    description="Fork of Python client for Consul (http://www.consul.io/) "
+    "with some community and mine patches.",
+    long_description_content_type='text/markdown',
+    long_description="**It's a fork of another fork** "
+    "<https://github.com/nzlosh/python-consul>.\n\n" +
+    "**The very first origin is " +
+    "<https://github.com/cablehead/python-consul>.\n\n" +
+    open('README.md', 'r').read() +
+    '\n\n' +
+    "# CHANGELOG \n" +
+    open('CHANGELOG.md', 'r').read(),
+    url='https://github.com/nixargh/python-consul',
+    author='nixargh',
+    author_email='nixargh@protonmail.com',
+    test_suite='tests',
+    packages=find_packages(exclude=["tests"]),
+    install_requires=get_requirements("./requirements.txt"),
     extras_require={
         'tornado': ['tornado'],
         'asyncio': ['aiohttp'],
@@ -66,13 +87,8 @@ setup(
     cmdclass={'test': PyTest,
               'install': Install},
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Developers',
+        'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-    ],
-)
+        'Topic :: System :: Systems Administration'
+    ])

@@ -1,3 +1,5 @@
+"""Base client for Consul."""
+
 import abc
 import collections
 import warnings
@@ -10,7 +12,7 @@ import six
 from six.moves import urllib
 
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 def args_to_payload(args_map):
@@ -61,20 +63,19 @@ class Check(object):
     There are three different kinds of checks: script, http and ttl
     """
     @classmethod
-    def script(klass, args, interval):
+    def script(cls, args, interval):
         """
         Run the script *args* every *interval* (e.g. "10s") to peform health
         check
         """
-        if isinstance(args, six.string_types) \
-                or isinstance(args, six.binary_type):
+        if isinstance(args, (six.string_types, six.binary_type)):
             warnings.warn(
                 "Check.script should take a list of args", DeprecationWarning)
             args = ["sh", "-c", args]
         return {'args': args, 'interval': interval}
 
     @classmethod
-    def http(klass, url, interval, timeout=None, deregister=None, header=None):
+    def http(cls, url, interval, timeout=None, deregister=None, header=None):
         """
         Peform a HTTP GET against *url* every *interval* (e.g. "10s") to peform
         health check with an optional *timeout* and optional *deregister* after
@@ -93,7 +94,7 @@ class Check(object):
         return ret
 
     @classmethod
-    def tcp(klass, host, port, interval, timeout=None, deregister=None):
+    def tcp(cls, host, port, interval, timeout=None, deregister=None):
         """
         Attempt to establish a tcp connection to the specified *host* and
         *port* at a specified *interval* with optional *timeout* and optional
@@ -111,7 +112,7 @@ class Check(object):
         return ret
 
     @classmethod
-    def ttl(klass, ttl):
+    def ttl(cls, ttl):
         """
         Set check to be marked as critical after *ttl* (e.g. "10s") unless the
         check is periodically marked as passing.
@@ -119,7 +120,7 @@ class Check(object):
         return {'ttl': ttl}
 
     @classmethod
-    def docker(klass, container_id, shell, script, interval, deregister=None):
+    def docker(cls, container_id, shell, script, interval, deregister=None):
         """
         Invoke *script* packaged within a running docker container with
         *container_id* at a specified *interval* on the configured
@@ -137,8 +138,8 @@ class Check(object):
         return ret
 
     @classmethod
-    def _compat(
-            self,
+    def compat(
+            cls,
             script=None,
             interval=None,
             ttl=None,
@@ -149,7 +150,7 @@ class Check(object):
         if not script and not http and not ttl:
             return {}
 
-        log.warn(
+        LOG.warning(
             'DEPRECATED: use consul.Check.script/http/ttl to specify check')
 
         ret = {'check': {}}
@@ -181,7 +182,7 @@ Response = collections.namedtuple('Response', ['code', 'headers', 'body'])
 
 class CB(object):
     @classmethod
-    def _status(klass, response, allow_404=True):
+    def _status(cls, response, allow_404=True):
         # status checking
         if 400 <= response.code < 500:
             if response.code == 400:
@@ -199,7 +200,7 @@ class CB(object):
             raise ConsulException("%d %s" % (response.code, response.body))
 
     @classmethod
-    def bool(klass):
+    def bool(cls):
         # returns True on successful response
         def cb(response):
             CB._status(response)
@@ -208,7 +209,7 @@ class CB(object):
 
     @classmethod
     def json(
-            klass,
+            cls,
             map=None,
             allow_404=True,
             one=False,
@@ -972,7 +973,7 @@ class Consul(object):
                     payload['check'] = check
 
                 else:
-                    payload.update(Check._compat(
+                    payload.update(Check.compat(
                         script=script,
                         interval=interval,
                         ttl=ttl,
@@ -1087,7 +1088,7 @@ class Consul(object):
                     payload.update(check)
 
                 else:
-                    payload.update(Check._compat(
+                    payload.update(Check.compat(
                         script=script,
                         interval=interval,
                         ttl=ttl,
@@ -1856,11 +1857,15 @@ class Consul(object):
             Returns the string *session_id* for the session.
             """
             params = []
+
             dc = dc or self.agent.dc
             if dc:
                 params.append(('dc', dc))
+
+            token = token or self.agent.token
             if token:
                 params.append(('token', token))
+
             data = {}
             if name:
                 data['name'] = name
@@ -1897,11 +1902,15 @@ class Consul(object):
             Returns *True* on success.
             """
             params = []
+
             dc = dc or self.agent.dc
             if dc:
                 params.append(('dc', dc))
+
+            token = token or self.agent.token
             if token:
                 params.append(('token', token))
+
             return self.agent.http.put(
                 CB.bool(),
                 '/v1/session/destroy/%s' % session_id,
@@ -1948,11 +1957,15 @@ class Consul(object):
                ])
             """
             params = []
+
             dc = dc or self.agent.dc
             if dc:
                 params.append(('dc', dc))
+
+            token = token or self.agent.token
             if token:
                 params.append(('token', token))
+
             if index:
                 params.append(('index', index))
                 if wait:
@@ -1989,11 +2002,15 @@ class Consul(object):
             *token* is an optional `ACL token`_ to apply to this request.
             """
             params = []
+
             dc = dc or self.agent.dc
             if dc:
                 params.append(('dc', dc))
+
+            token = token or self.agent.token
             if token:
                 params.append(('token', token))
+
             if index:
                 params.append(('index', index))
                 if wait:
@@ -2031,11 +2048,15 @@ class Consul(object):
             *token* is an optional `ACL token`_ to apply to this request.
             """
             params = []
+
             dc = dc or self.agent.dc
             if dc:
                 params.append(('dc', dc))
+
+            token = token or self.agent.token
             if token:
                 params.append(('token', token))
+
             if index:
                 params.append(('index', index))
                 if wait:
@@ -2061,11 +2082,15 @@ class Consul(object):
             Returns the session.
             """
             params = []
+
             dc = dc or self.agent.dc
             if dc:
                 params.append(('dc', dc))
+
+            token = token or self.agent.token
             if token:
                 params.append(('token', token))
+
             return self.agent.http.put(
                 CB.json(one=True, allow_404=False),
                 '/v1/session/renew/%s' % session_id,
@@ -2076,17 +2101,16 @@ class Consul(object):
             self.agent = agent
 
         def create_token(
-            self,
-            accessor_id=None,
-            secret_id=None,
-            description=None,
-            policies=None,
-            roles=None,
-            service_identities=None,
-            local=None,
-            expiration_time=None,
-            expiration_ttl=None
-        ):
+                self,
+                accessor_id=None,
+                secret_id=None,
+                description=None,
+                policies=None,
+                roles=None,
+                service_identities=None,
+                local=None,
+                expiration_time=None,
+                expiration_ttl=None):
             return self.agent.http.put(
                 CB.json(), '/v1/acl/token', params=args_to_payload(locals()))
 
@@ -2099,17 +2123,16 @@ class Consul(object):
                 CB.json(), '/v1/acl/token/self')
 
         def update_token(
-            self,
-            accessor_id,
-            secret_id=None,
-            description=None,
-            policies=None,
-            roles=None,
-            service_identities=None,
-            local=None,
-            expiration_time=None,
-            expiration_ttl=None
-        ):
+                self,
+                accessor_id,
+                secret_id=None,
+                description=None,
+                policies=None,
+                roles=None,
+                service_identities=None,
+                local=None,
+                expiration_time=None,
+                expiration_ttl=None):
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/policies/{}'.format(accessor_id),
@@ -2117,9 +2140,12 @@ class Consul(object):
             )
 
         def clone_token(self, accessor_id, description=None):
+            params = list()
+            if description:
+                params = [("description", description)]
             return self.agent.http.put(
                 CB.json(), '/v1/acl/token/{}/clone'.format(accessor_id),
-                params=[("description", description)] if description != "" else [])
+                params=params)
 
         def delete_token(self, accessor_id):
             return self.agent.http.delete(
@@ -2129,7 +2155,12 @@ class Consul(object):
             return self.agent.http.get(
                 CB.json(), '/v1/acl/tokens')
 
-        def create_policy(self, name, description=None, rules=None, datacenters=None):
+        def create_policy(
+                self,
+                name,
+                description=None,
+                rules=None,
+                datacenters=None):
             return self.agent.http.put(
                 CB.json(), '/v1/acl/policy', params=args_to_payload(locals()))
 
@@ -2137,9 +2168,17 @@ class Consul(object):
             return self.agent.http.get(
                 CB.json(), '/v1/acl/policy/{}'.format(policy_id))
 
-        def update_policy(self, policy_id, name, description=None, rules=None, datacenters=None):
+        def update_policy(
+                self,
+                policy_id,
+                name,
+                description=None,
+                rules=None,
+                datacenters=None):
             return self.agent.http.put(
-                CB.json(), '/v1/acl/policy/{}'.format(policy_id), args_to_payload(locals()))
+                CB.json(),
+                '/v1/acl/policy/{}'.format(policy_id),
+                args_to_payload(locals()))
 
         def delete_policy(self, policy_id):
             return self.agent.http.delete(
@@ -2149,7 +2188,12 @@ class Consul(object):
             return self.agent.http.get(
                 CB.json(), '/v1/acl/policies')
 
-        def create_role(self, name, description=None, policies=None, service_identities=None):
+        def create_role(
+                self,
+                name,
+                description=None,
+                policies=None,
+                service_identities=None):
             return self.agent.http.put(
                 CB.json(), '/v1/acl/role', params=args_to_payload(locals()))
 
@@ -2162,15 +2206,16 @@ class Consul(object):
                 CB.json(), '/v1/acl/role/name/{}'.format(role_name))
 
         def update_role(
-            self,
-            role_id,
-            name,
-            description=None,
-            policies=None,
-            service_identities=None
-        ):
+                self,
+                role_id,
+                name,
+                description=None,
+                policies=None,
+                service_identities=None):
             return self.agent.http.put(
-                CB.json(), '/v1/acl/role/{}'.format(role_id), args_to_payload(locals()))
+                CB.json(),
+                '/v1/acl/role/{}'.format(role_id),
+                args_to_payload(locals()))
 
         def delete_role(self, role_id):
             return self.agent.http.delete(
@@ -2183,15 +2228,27 @@ class Consul(object):
                 params=[("policy_id", policy_id)] if policy_id != "" else []
             )
 
-        def create_auth_method(self, auth_method_name, auth_method_type, config, description=None):
+        def create_auth_method(
+                self,
+                auth_method_name,
+                auth_method_type,
+                config,
+                description=None):
             return self.agent.http.put(
-                CB.json(), '/v1/acl/auth-method', params=args_to_payload(locals()))
+                CB.json(),
+                '/v1/acl/auth-method',
+                params=args_to_payload(locals()))
 
         def read_auth_method(self, auth_method_name):
             return self.agent.http.put(
                 CB.json(), '/v1/acl/auth-method/{}'.format(auth_method_name))
 
-        def update_auth_method(self, auth_method_name, auth_method_type, config, description=None):
+        def update_auth_method(
+                self,
+                auth_method_name,
+                auth_method_type,
+                config,
+                description=None):
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/auth-method/{}'.format(auth_method_name),
@@ -2207,29 +2264,29 @@ class Consul(object):
                 CB.json(), '/v1/acl/auth-methods')
 
         def create_binding_rule(
-            self,
-            binding_rule,
-            bind_type,
-            bind_name,
-            description=None,
-            selector=None
-        ):
+                self,
+                binding_rule,
+                bind_type,
+                bind_name,
+                description=None,
+                selector=None):
             return self.agent.http.put(
-                CB.json(), '/v1/acl/binding-rule', params=args_to_payload(locals()))
+                CB.json(),
+                '/v1/acl/binding-rule',
+                params=args_to_payload(locals()))
 
         def read_binding_rule(self, binding_rule_id):
             return self.agent.http.put(
                 CB.json(), '/v1/acl/binding-rule/{}'.format(binding_rule_id))
 
         def update_binding_rule(
-            self,
-            binding_rule_id,
-            auth_method,
-            bind_type,
-            bind_name,
-            description=None,
-            selector=None
-        ):
+                self,
+                binding_rule_id,
+                auth_method,
+                bind_type,
+                bind_name,
+                description=None,
+                selector=None):
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/binding-rule/{}'.format(binding_rule_id),
