@@ -66,7 +66,7 @@ setup(
     long_description_content_type='text/markdown',
     long_description="**It's a fork of another fork** "
     "<https://github.com/nzlosh/python-consul>.\n\n" +
-    "**The very first origin is **" +
+    "**The very first origin is** " +
     "<https://github.com/cablehead/python-consul>.\n\n" +
     open('README.md', 'r').read() +
     '\n\n' +
