@@ -6,16 +6,8 @@ python:
   - 3.7
 
 install:
-  - pip install tox
-  - pip install tox-travis
+  - pip3 install tox
+  - pip3 install tox-travis
 
 script:
   - tox
-
-jobs:
-  include:
-    - stage: flake
-      python: 3.6
-      script:
-        - tox -e flake8
-      install: ignore
