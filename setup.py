@@ -58,11 +58,11 @@ class PyTest(TestCommand):
 
 
 setup(
-    name='consul',
+    name='consul-reborn',
     license='MIT',
     version=get_version(),
     description="Fork of Python client for Consul (http://www.consul.io/) "
-    "with some community and mine patches.",
+    "with some community and my patches.",
     long_description_content_type='text/markdown',
     long_description="**It's a fork of another fork** "
     "<https://github.com/nzlosh/python-consul>.\n\n" +

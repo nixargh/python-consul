@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2019-06-27
+### Changed
+- Package name **consul** => **consul-reborn**. Because name **Consul** is occupied at PyPi.
+
 ## [1.2.5] - 2019-06-27
 ### Removed
 - `tox.ini` flake8 and Python2.

@@ -10,4 +10,4 @@ from consul.base import ACLDisabled
 from consul.base import NotFound
 from consul.base import Timeout
 
-__version__ = '1.2.5'
+__version__ = '1.3.0'
