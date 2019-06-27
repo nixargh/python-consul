@@ -4,18 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2019-06-27
+### Fixed
+- `README.md`.
+- `setup.py`.
+
+### Changed
+- `.travis.yml` remove sonar and deploy stages.
+
+### Removed
+- `.bumpversion.cfg`.
+- `sonar-project.properties`.
+- Support of Python2.
+
 ## [1.2.1] - 2019-06-26
 ### Fixed
-- `README`.
+- `README.md`.
 
 ## [1.2.0] - 2019-06-26
 ### Fixed
-- `base` All methods of **Session** class use agent token if exists.
-- `base` Minor linting.
+- `consul.base` All methods of **Session** class use agent token if exists.
+- `consul.base` Minor linting.
 
 ### Changed
-- `README`, `CHANGELOG` Converted to markdown.
-- `setup` Adjust.
+- `README.md`, `CHANGELOG` Converted to markdown.
+- `setup.py` Adjust.
 
 
 ## Old Versions

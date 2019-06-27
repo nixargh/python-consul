@@ -66,11 +66,10 @@ setup(
     long_description_content_type='text/markdown',
     long_description="**It's a fork of another fork** "
     "<https://github.com/nzlosh/python-consul>.\n\n" +
-    "**The very first origin is " +
+    "**The very first origin is **" +
     "<https://github.com/cablehead/python-consul>.\n\n" +
     open('README.md', 'r').read() +
     '\n\n' +
-    "# CHANGELOG \n" +
     open('CHANGELOG.md', 'r').read(),
     url='https://github.com/nixargh/python-consul',
     author='nixargh',
