@@ -40,5 +40,5 @@ c.agent.self()
 
 ## Installation
 ```
-pip3 install consul
+pip3 install consul-reborn
 ```
