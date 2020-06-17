@@ -1,5 +1,7 @@
 """Base client for Consul."""
 
+#  noqa pylint: disable=invalid-name,too-many-lines,too-many-arguments,fixme,consider-using-dict-comprehension
+
 import abc
 import collections
 import warnings
@@ -16,9 +18,13 @@ LOG = logging.getLogger(__name__)
 
 
 def args_to_payload(args_map):
+    """
+    Convert arguments to payload basing on function name.
+    I do not understand this piece of code.
+    """
     return [
         (key, value)
-        for key, value in
+        for key, value in  # pylint: disable=unnecessary-comprehension
         {
             k: v for
             k, v in args_map.items() if v is not None and k != "self"
@@ -27,38 +33,45 @@ def args_to_payload(args_map):
 
 
 class ConsulException(Exception):
-    pass
-
-
-class ACLDisabled(ConsulException):
-    pass
-
-
-class ACLPermissionDenied(ConsulException):
-    pass
-
-
-class NotFound(ConsulException):
-    pass
-
-
-class Timeout(ConsulException):
-    pass
+    """Common Consul Exception.
+    Encapsulates 500-600 HTTP error codes.
+    """
 
 
 class BadRequest(ConsulException):
-    pass
+    """Encapsulates 400 HTTP error code."""
+
+
+class ACLDisabled(ConsulException):
+    """
+    Exception for disabled Consul ACL.
+    Encapsulates 401 HTTP error code.
+    """
+
+
+class ACLPermissionDenied(ConsulException):
+    """
+    Exception about insufficient permissions.
+    Encapsulates 403 HTTP error code.
+    """
+
+
+class NotFound(ConsulException):
+    """Encapsulates 404 HTTP error code."""
+
+
+class Timeout(ConsulException):
+    """Encapsulates 599 HTTP error code."""
 
 
 class ClientError(ConsulException):
-    """Encapsulates 4xx Http error code"""
-    pass
+    """Encapsulates 4xx HTTP error codes not mentioned above."""
 
 
 #
 # Convenience to define checks
 
-class Check(object):
+class Check():
     """
     There are three different kinds of checks: script, http and ttl
     """
@@ -137,42 +150,6 @@ class Check(object):
             ret['DeregisterCriticalServiceAfter'] = deregister
         return ret
 
-    @classmethod
-    def compat(
-            cls,
-            script=None,
-            interval=None,
-            ttl=None,
-            http=None,
-            timeout=None,
-            deregister=None):
-
-        if not script and not http and not ttl:
-            return {}
-
-        LOG.warning(
-            'DEPRECATED: use consul.Check.script/http/ttl to specify check')
-
-        ret = {'check': {}}
-
-        if script:
-            assert interval and not (ttl or http)
-            ret['check'] = {'script': script, 'interval': interval}
-        if ttl:
-            assert not (interval or script or http)
-            ret['check'] = {'ttl': ttl}
-        if http:
-            assert interval and not (script or ttl)
-            ret['check'] = {'http': http, 'interval': interval}
-        if timeout:
-            assert http
-            ret['check']['timeout'] = timeout
-
-        if deregister:
-            ret['check']['DeregisterCriticalServiceAfter'] = deregister
-
-        return ret
-
 
 Response = collections.namedtuple('Response', ['code', 'headers', 'body'])
 
@@ -180,28 +157,37 @@ Response = collections.namedtuple('Response', ['code', 'headers', 'body'])
 #
 # Conveniences to create consistent callback handlers for endpoints
 
-class CB(object):
+class CB():
+    """Call back class."""
+
     @classmethod
     def _status(cls, response, allow_404=True):
-        # status checking
-        if 400 <= response.code < 500:
-            if response.code == 400:
+        code = response.code
+        LOG.debug("Evaluating HTTP code (allow_404=%s): %i.", allow_404, code)
+
+        if 400 <= code < 500:
+            if code == 400:
                 raise BadRequest('%d %s' % (response.code, response.body))
-            elif response.code == 401:
+
+            if code == 401:
                 raise ACLDisabled(response.body)
-            elif response.code == 403:
+
+            if code == 403:
                 raise ACLPermissionDenied(response.body)
-            elif response.code == 404:
+
+            if code == 404:
                 if not allow_404:
                     raise NotFound(response.body)
             else:
                 raise ClientError("%d %s" % (response.code, response.body))
-        elif 500 <= response.code < 600:
-            raise ConsulException("%d %s" % (response.code, response.body))
+        elif 500 <= code < 600:
+            raise ConsulException("%d %s" % (code, response.body))
+        else:
+            LOG.debug("HTTP code %i has been considered good.", code)
 
     @classmethod
     def bool(cls):
-        # returns True on successful response
+        """Returns True on successful response."""
         def cb(response):
             CB._status(response)
             return response.code == 200
@@ -210,14 +196,14 @@ class CB(object):
     @classmethod
     def json(
             cls,
-            map=None,
+            map_func=None,
             allow_404=True,
             one=False,
             decode=False,
             is_id=False,
             index=False):
         """
-        *map* is a function to apply to the final result.
+        *map_func* is a function to apply to the final result.
 
         *allow_404* if set, None will be returned on 404, instead of raising
         NotFound.
@@ -249,8 +235,8 @@ class CB(object):
                     data = None
                 if data is not None:
                     data = data[0]
-            if map:
-                data = map(data)
+            if map_func:
+                data = map_func(data)
             if index:
                 return response.headers['X-Consul-Index'], data
             return data
@@ -258,6 +244,8 @@ class CB(object):
 
 
 class HTTPClient(six.with_metaclass(abc.ABCMeta, object)):
+    """Class wrapping urllib."""
+
     def __init__(self, base_uri, verify=True, cert=None, auth=None):
         self.base_uri = base_uri
         self.verify = verify
@@ -265,6 +253,7 @@ class HTTPClient(six.with_metaclass(abc.ABCMeta, object)):
         self.auth = auth
 
     def uri(self, path, params=None):
+        """Add parameters to URI."""
         uri = self.base_uri + urllib.parse.quote(path, safe='/:')
         if params:
             uri = '%s?%s' % (uri, urllib.parse.urlencode(params))
@@ -272,22 +261,28 @@ class HTTPClient(six.with_metaclass(abc.ABCMeta, object)):
 
     @abc.abstractmethod
     def get(self, callback, path, params=None):
+        """HTTP method stub."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def put(self, callback, path, params=None, data=''):
+        """HTTP method stub."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def delete(self, callback, path, params=None):
+        """HTTP method stub."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def post(self, callback, path, params=None, data=''):
+        """HTTP method stub."""
         raise NotImplementedError
 
 
-class Consul(object):
+class Consul():  # noqa pylint: disable=too-many-instance-attributes,too-few-public-methods
+    """Class collecting Consul operations."""
+
     def __init__(
             self,
             host='127.0.0.1',
@@ -322,12 +317,10 @@ class Consul(object):
             e.g. unix:///var/run/consul/http.sock, http://localhost:8500/
         """
 
-        # TODO: Status
-
         if not addr:
             addr = '{0}://{1}:{2}'.format(scheme, host, port)
 
-        self.http = self.connect(addr, verify=verify, cert=cert, auth=auth)
+        self.http = self.connect(addr, verify=verify, cert=cert, auth=auth)  # noqa pylint: disable=no-member
         self.token = token
         self.dc = dc
         assert consistency in ('default', 'consistent', 'stale'), \
@@ -403,7 +396,7 @@ class Consul(object):
 
         return cls(**kwargs)
 
-    class Event(object):
+    class Event():
         """
         The event command provides a mechanism to fire a custom user event to
         an entire datacenter. These events are opaque to Consul, but they can
@@ -472,7 +465,8 @@ class Consul(object):
                 self,
                 name=None,
                 index=None,
-                wait=None):
+                wait=None,
+                token=None):
             """
             Returns a tuple of (*index*, *events*)
                 Note: Since Consul's event protocol uses gossip, there is no
@@ -515,11 +509,14 @@ class Consul(object):
                 params.append(('index', index))
                 if wait:
                     params.append(('wait', wait))
+            token = token or self.agent.token
+            if token:
+                params.append(('token', token))
             return self.agent.http.get(
                 CB.json(index=True, decode='Payload'),
                 '/v1/event/list', params=params)
 
-    class KV(object):
+    class KV():
         """
         The KV endpoint is used to expose a simple key/value store. This can be
         used to store service configurations or other meta data in a simple
@@ -718,7 +715,7 @@ class Consul(object):
             return self.agent.http.delete(
                 CB.json(), '/v1/kv/%s' % key, params=params)
 
-    class Txn(object):
+    class Txn():
         """
         The Transactions endpoints manage updates or fetches of multiple keys
         inside a single, atomic transaction.
@@ -752,7 +749,7 @@ class Consul(object):
             return self.agent.http.put(CB.json(), "/v1/txn",
                                        data=json.dumps(payload))
 
-    class Agent(object):
+    class Agent():
         """
         The Agent endpoints are used to interact with a local Consul agent.
         Usually, services and checks are registered with an agent, which then
@@ -854,7 +851,7 @@ class Consul(object):
             return self.agent.http.put(
                 CB.bool(), '/v1/agent/join/%s' % address, params=params)
 
-        def force_leave(self, node):
+        def force_leave(self, node, token=None):
             """
             This endpoint instructs the agent to force a node into the left
             state. If a node fails unexpectedly, then it will be in a failed
@@ -864,12 +861,19 @@ class Consul(object):
             entries to be removed.
 
             *node* is the node to change state for.
+
+            *token* is an optional `ACL token`_ to apply to this request.
             """
-
+            params = []
+            token = token or self.agent.token
+            if token:
+                params.append(('token', token))
             return self.agent.http.put(
-                CB.bool(), '/v1/agent/force-leave/%s' % node)
+                CB.bool(),
+                '/v1/agent/force-leave/%s' % node,
+                params=params)
 
-        def leave(self, node):
+        def leave(self, node, token=None):
             """
             This endpoint instructs the agent to graceful leave a node.
             It is used to ensure other nodes see the agent as "left"
@@ -878,11 +882,19 @@ class Consul(object):
             in server mode, the node is removed from the Raft peer
             set in a graceful manner. This is critical, as in certain
             situations a non-graceful leave can affect cluster availability.
-            *node* is the node to change state for.
-            """
 
+            *node* is the node to change state for.
+
+            *token* is an optional `ACL token`_ to apply to this request.
+            """
+            params = []
+            token = token or self.agent.token
+            if token:
+                params.append(('token', token))
             return self.agent.http.put(
-                CB.bool(), '/v1/agent/leave/%s' % node)
+                CB.bool(),
+                '/v1/agent/leave/%s' % node,
+                params=params)
 
         def metrics(self, token=None):
             """
@@ -896,11 +908,12 @@ class Consul(object):
                 CB.json(), '/v1/agent/metrics',
                 params=params)
 
-        class Service(object):
+        class Service():
+            """Consul service class."""
             def __init__(self, agent):
                 self.agent = agent
 
-            def register(
+            def register(  # pylint: disable=too-many-locals
                     self,
                     name,
                     service_id=None,
@@ -910,12 +923,6 @@ class Consul(object):
                     check=None,
                     token=None,
                     meta=None,
-                    # *deprecated* use check parameter
-                    script=None,
-                    interval=None,
-                    ttl=None,
-                    http=None,
-                    timeout=None,
                     enable_tag_override=False):
                 """
                 Add a new service to the local agent. There is more
@@ -941,9 +948,6 @@ class Consul(object):
 
                 *meta* specifies arbitrary KV metadata linked to the service
                 formatted as {k1:v1, k2:v2}.
-
-                *script*, *interval*, *ttl*, *http*, and *timeout* arguments
-                are deprecated. use *check* instead.
 
                 *enable_tag_override* is an optional bool that enable you
                 to modify a service tags from servers(consul agent role server)
@@ -973,12 +977,7 @@ class Consul(object):
                     payload['check'] = check
 
                 else:
-                    payload.update(Check.compat(
-                        script=script,
-                        interval=interval,
-                        ttl=ttl,
-                        http=http,
-                        timeout=timeout))
+                    raise Exception("'Check.compat' was removed")
 
                 params = []
                 token = token or self.agent.token
@@ -1033,7 +1032,9 @@ class Consul(object):
                     '/v1/agent/service/maintenance/{0}'.format(service_id),
                     params=params)
 
-        class Check(object):
+        class Check():
+            """Consul check class."""
+
             def __init__(self, agent):
                 self.agent = agent
 
@@ -1044,13 +1045,7 @@ class Consul(object):
                     check_id=None,
                     notes=None,
                     service_id=None,
-                    token=None,
-                    # *deprecated* use check parameter
-                    script=None,
-                    interval=None,
-                    ttl=None,
-                    http=None,
-                    timeout=None):
+                    token=None):
                 """
                 Register a new check with the local agent. More documentation
                 on checks can be found `here
@@ -1074,26 +1069,18 @@ class Consul(object):
                 Note this call will return successful even if the token doesn't
                 have permissions to register this check.
 
-                *script*, *interval*, *ttl*, *http*, and *timeout* arguments
-                are deprecated. use *check* instead.
-
                 Returns *True* on success.
                 """
                 payload = {'name': name}
 
-                assert check or script or ttl or http, \
+                assert check, \
                     'check is required'
 
                 if check:
                     payload.update(check)
 
                 else:
-                    payload.update(Check.compat(
-                        script=script,
-                        interval=interval,
-                        ttl=ttl,
-                        http=http,
-                        timeout=timeout)['check'])
+                    raise Exception("'Check.compat' was removed")
 
                 if check_id:
                     payload['id'] = check_id
@@ -1165,7 +1152,9 @@ class Consul(object):
                     '/v1/agent/check/warn/%s' % check_id,
                     params=params)
 
-    class Catalog(object):
+    class Catalog():
+        """Consul catalog class."""
+
         def __init__(self, agent):
             self.agent = agent
 
@@ -1589,7 +1578,9 @@ class Consul(object):
                 '/v1/catalog/service/%s' % service,
                 params=params)
 
-    class Health(object):
+    class Health():
+        """Consul health class."""
+
         # TODO: All of the health endpoints support all consistency modes
         def __init__(self, agent):
             self.agent = agent
@@ -1808,7 +1799,9 @@ class Consul(object):
                 '/v1/health/node/%s' % node,
                 params=params)
 
-    class Session(object):
+    class Session():
+        """Consul session class."""
+
         def __init__(self, agent):
             self.agent = agent
 
@@ -2096,10 +2089,13 @@ class Consul(object):
                 '/v1/session/renew/%s' % session_id,
                 params=params)
 
-    class ACL(object):
+    class ACL():  # pylint: disable=too-many-public-methods
+        """Consul ACL class."""
+
         def __init__(self, agent):
             self.agent = agent
 
+        # pylint: disable=unused-argument
         def create_token(
                 self,
                 accessor_id=None,
@@ -2111,17 +2107,22 @@ class Consul(object):
                 local=None,
                 expiration_time=None,
                 expiration_ttl=None):
+            """Create a Consul token object."""
             return self.agent.http.put(
                 CB.json(), '/v1/acl/token', params=args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def read_token(self, accessor_id):
+            """Read Consul token by accessor_id."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/token/{}'.format(accessor_id))
 
         def read_self_token(self):
+            """Read own Consul token."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/token/self')
 
+        # pylint: disable=unused-argument
         def update_token(
                 self,
                 accessor_id,
@@ -2133,13 +2134,16 @@ class Consul(object):
                 local=None,
                 expiration_time=None,
                 expiration_ttl=None):
+            """Update Consul token."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/policies/{}'.format(accessor_id),
                 params=args_to_payload(locals())
             )
+        # pylint: enable=unused-argument
 
         def clone_token(self, accessor_id, description=None):
+            """Clone Consul token."""
             params = list()
             if description:
                 params = [("description", description)]
@@ -2148,26 +2152,33 @@ class Consul(object):
                 params=params)
 
         def delete_token(self, accessor_id):
+            """Delete Consul token."""
             return self.agent.http.delete(
                 CB.json(), '/v1/acl/token/{}'.format(accessor_id))
 
         def list_tokens(self):
+            """List Consul tokens."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/tokens')
 
+        # pylint: disable=unused-argument
         def create_policy(
                 self,
                 name,
                 description=None,
                 rules=None,
                 datacenters=None):
+            """Create Consul policy."""
             return self.agent.http.put(
                 CB.json(), '/v1/acl/policy', params=args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def read_policy(self, policy_id):
+            """Read Consul policy."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/policy/{}'.format(policy_id))
 
+        # pylint: disable=unused-argument
         def update_policy(
                 self,
                 policy_id,
@@ -2175,36 +2186,46 @@ class Consul(object):
                 description=None,
                 rules=None,
                 datacenters=None):
+            """Update Consul policy."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/policy/{}'.format(policy_id),
                 args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def delete_policy(self, policy_id):
+            """Delete Consul policy."""
             return self.agent.http.delete(
                 CB.json(), '/v1/acl/policy/{}'.format(policy_id))
 
         def list_policies(self):
+            """List Consul policies."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/policies')
 
+        # pylint: disable=unused-argument
         def create_role(
                 self,
                 name,
                 description=None,
                 policies=None,
                 service_identities=None):
+            """Create Consul role."""
             return self.agent.http.put(
                 CB.json(), '/v1/acl/role', params=args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def read_role(self, role_id):
+            """Read Consul role by ID."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/role/{}'.format(role_id))
 
         def read_role_by_name(self, role_name):
+            """Read Consul role by name."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/role/name/{}'.format(role_name))
 
+        # pylint: disable=unused-argument
         def update_role(
                 self,
                 role_id,
@@ -2212,57 +2233,71 @@ class Consul(object):
                 description=None,
                 policies=None,
                 service_identities=None):
+            """Update Consul role."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/role/{}'.format(role_id),
                 args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def delete_role(self, role_id):
+            """Delete Consul role."""
             return self.agent.http.delete(
                 CB.json(), '/v1/acl/role/{}'.format(role_id))
 
         def list_roles(self, policy_id=None):
+            """List Consul roles."""
             return self.agent.http.get(
                 CB.json(),
                 '/v1/acl/roles',
                 params=[("policy_id", policy_id)] if policy_id != "" else []
             )
 
+        # pylint: disable=unused-argument
         def create_auth_method(
                 self,
                 auth_method_name,
                 auth_method_type,
                 config,
                 description=None):
+            """Create Consul auth method."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/auth-method',
                 params=args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def read_auth_method(self, auth_method_name):
+            """Read Consul auth method."""
             return self.agent.http.put(
                 CB.json(), '/v1/acl/auth-method/{}'.format(auth_method_name))
 
+        # pylint: disable=unused-argument
         def update_auth_method(
                 self,
                 auth_method_name,
                 auth_method_type,
                 config,
                 description=None):
+            """Update Consul auth method."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/auth-method/{}'.format(auth_method_name),
                 args_to_payload(locals())
             )
+        # pylint: enable=unused-argument
 
         def delete_auth_method(self, auth_method_name):
+            """Delete Consul auth method."""
             return self.agent.http.delete(
                 CB.json(), '/v1/acl/auth-method/{}'.format(auth_method_name))
 
         def list_auth_methods(self):
+            """List Consul auth methods."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/auth-methods')
 
+        # pylint: disable=unused-argument
         def create_binding_rule(
                 self,
                 binding_rule,
@@ -2270,15 +2305,19 @@ class Consul(object):
                 bind_name,
                 description=None,
                 selector=None):
+            """Create Consul bindig rule."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/binding-rule',
                 params=args_to_payload(locals()))
+        # pylint: enable=unused-argument
 
         def read_binding_rule(self, binding_rule_id):
+            """Read Consul bindig rule."""
             return self.agent.http.put(
                 CB.json(), '/v1/acl/binding-rule/{}'.format(binding_rule_id))
 
+        # pylint: disable=unused-argument
         def update_binding_rule(
                 self,
                 binding_rule_id,
@@ -2287,17 +2326,21 @@ class Consul(object):
                 bind_name,
                 description=None,
                 selector=None):
+            """Update Consul bindig rule."""
             return self.agent.http.put(
                 CB.json(),
                 '/v1/acl/binding-rule/{}'.format(binding_rule_id),
                 args_to_payload(locals())
             )
+        # pylint: enable=unused-argument
 
         def delete_binding_rule(self, binding_rule_id):
+            """Delete Consul bindig rule."""
             return self.agent.http.delete(
                 CB.json(), '/v1/acl/binding-rule/{}'.format(binding_rule_id))
 
         def list_binding_rules(self):
+            """List Consul bindig rules."""
             return self.agent.http.get(
                 CB.json(), '/v1/acl/binding-rules')
 
@@ -2328,7 +2371,7 @@ class Consul(object):
 
         def create(self,
                    name=None,
-                   type='client',
+                   type='client',  # pylint: disable=redefined-builtin
                    rules=None,
                    acl_id=None,
                    token=None):
@@ -2394,7 +2437,7 @@ class Consul(object):
                 params=params,
                 data=data)
 
-        def update(self, acl_id, name=None, type=None, rules=None, token=None):
+        def update(self, acl_id, name=None, type=None, rules=None, token=None):  # noqa pylint: disable=redefined-builtin
             """
             Updates the ACL token *acl_id*. This is a privileged endpoint, and
             requires a management token. *token* will override this client's
@@ -2474,7 +2517,7 @@ class Consul(object):
                 '/v1/acl/destroy/%s' % acl_id,
                 params=params)
 
-    class Status(object):
+    class Status():
         """
         The Status endpoints are used to get information about the status
          of the Consul cluster.
@@ -2497,7 +2540,9 @@ class Consul(object):
             """
             return self.agent.http.get(CB.json(), '/v1/status/peers')
 
-    class Query(object):
+    class Query():
+        """Consul query class."""
+
         def __init__(self, agent):
             self.agent = agent
 
@@ -2624,7 +2669,7 @@ class Consul(object):
             return self.agent.http.post(
                 CB.json(), path, params=params, data=data)
 
-        def update(self, query_id,
+        def update(self, query_id,  # pylint: disable=too-many-locals
                    service=None,
                    name=None,
                    dc=None,
@@ -2753,7 +2798,9 @@ class Consul(object):
             return self.agent.http.get(
                 CB.json(), '/v1/query/%s/explain' % query, params=params)
 
-    class Coordinate(object):
+    class Coordinate():
+        """Consul coordinate class."""
+
         def __init__(self, agent):
             self.agent = agent
 
@@ -2793,7 +2840,9 @@ class Consul(object):
             return self.agent.http.get(
                 CB.json(index=True), '/v1/coordinate/nodes', params=params)
 
-    class Operator(object):
+    class Operator():
+        """Consul operator class."""
+
         def __init__(self, agent):
             self.agent = agent
 
