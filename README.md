@@ -12,7 +12,7 @@ I don't like how it has been written but have no time for full refactoring, so I
 I do not fix CI or tests, sorry for that.
 
 ## Status
-I'm using some of its function in production, so it's not a complete junk.
+I'm using some of its functions in production, so it's not a complete junk.
 
 ## Documentation
 [Original Library Documentation](https://python-consul.readthedocs.io)
