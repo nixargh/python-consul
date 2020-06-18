@@ -1,14 +1,21 @@
 # Python client for [HashiCorp Consul](http://www.consul.io/)
 
+## PyPi
+This code is avaliable at PyPI as [consul-reborn](https://pypi.org/project/consul-reborn/).
+
 ## Creators
 Original code belongs to [Andy Gayton](https://github.com/cablehead).
 And fork with community patches belongs to [Carlos](https://github.com/nzlosh).
 
-## Documentation
-[Original Library Documentation](https://python-consul.readthedocs.io)
+## Disclamer
+I don't like how it has been written but have no time for full refactoring, so I just fix issues that I crossed by.
+I do not fix CI or tests, sorry for that.
 
 ## Status
 I'm using some of its function in production, so it's not a complete junk.
+
+## Documentation
+[Original Library Documentation](https://python-consul.readthedocs.io)
 
 ## Example
 ``` {.sourceCode .python}
